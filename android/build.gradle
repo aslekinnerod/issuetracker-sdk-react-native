@@ -64,4 +64,8 @@ android {
 
 dependencies {
   implementation "com.facebook.react:react-android"
+  // Native Android SDK that this wrapper bridges to. For local dev,
+  // the example app's settings.gradle uses includeBuild('../../sdk-android')
+  // which resolves this coordinate from the local source tree.
+  implementation "io.issuetracker:sdk:0.1.0-SNAPSHOT"
 }

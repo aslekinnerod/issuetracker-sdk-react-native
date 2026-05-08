@@ -16,5 +16,10 @@ Pod::Spec.new do |s|
   s.source_files = "ios/**/*.{h,m,mm,swift,cpp}"
   s.private_header_files = "ios/**/*.h"
 
+  # Native iOS SDK that this wrapper bridges to. The example app's
+  # Podfile pins it to a local path for development:
+  #   pod 'IssuetrackerSDK', :path => '../../../sdk-ios'
+  s.dependency "IssuetrackerSDK", "~> 0.1.0"
+
   install_modules_dependencies(s)
 end

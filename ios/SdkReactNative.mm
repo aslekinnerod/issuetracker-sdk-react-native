@@ -1,10 +1,50 @@
 #import "SdkReactNative.h"
+#import "SdkReactNative-Swift.h"
 
 @implementation SdkReactNative
-- (NSNumber *)multiply:(double)a b:(double)b {
-    NSNumber *result = @(a * b);
 
-    return result;
+RCT_EXPORT_MODULE()
+
+- (void)configure:(NSString *)apiKey
+         endpoint:(NSString *)endpoint
+    shakeToReport:(BOOL)shakeToReport
+longPressToReport:(BOOL)longPressToReport
+enableCrashReporting:(BOOL)enableCrashReporting
+{
+    [IssuetrackerSdkBridge configureWithApiKey:apiKey
+                                       endpoint:endpoint
+                                  shakeToReport:shakeToReport
+                              longPressToReport:longPressToReport
+                            enableCrashReporting:enableCrashReporting];
+}
+
+- (void)report
+{
+    [IssuetrackerSdkBridge report];
+}
+
+- (void)identify:(NSString *)name
+{
+    [IssuetrackerSdkBridge identify:name];
+}
+
+- (void)clearIdentity
+{
+    [IssuetrackerSdkBridge clearIdentity];
+}
+
+- (void)recordAction:(NSString *)action metadata:(NSDictionary *)metadata
+{
+    NSDictionary<NSString *, NSString *> *typed = nil;
+    if ([metadata isKindOfClass:[NSDictionary class]]) {
+        typed = (NSDictionary<NSString *, NSString *> *)metadata;
+    }
+    [IssuetrackerSdkBridge recordAction:action metadata:typed];
+}
+
+- (void)testCrash
+{
+    [IssuetrackerSdkBridge testCrash];
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
@@ -15,7 +55,7 @@
 
 + (NSString *)moduleName
 {
-  return @"SdkReactNative";
+    return @"SdkReactNative";
 }
 
 @end

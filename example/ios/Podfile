@@ -17,6 +17,11 @@ end
 target 'SdkReactNativeExample' do
   config = use_native_modules!
 
+  # Local path to the iOS native SDK that this wrapper bridges to.
+  # Replace with `pod 'IssuetrackerSDK', '~> 0.1.0'` once the SDK is
+  # published to the CocoaPods trunk.
+  pod 'IssuetrackerSDK', :path => '../../../sdk-ios'
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
