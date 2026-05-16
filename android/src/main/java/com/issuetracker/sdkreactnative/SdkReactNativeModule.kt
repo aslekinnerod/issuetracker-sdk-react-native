@@ -9,7 +9,6 @@ class SdkReactNativeModule(reactContext: ReactApplicationContext) :
 
   override fun configure(
     apiKey: String,
-    endpoint: String,
     shakeToReport: Boolean,
     longPressToReport: Boolean,
     enableCrashReporting: Boolean,
@@ -18,7 +17,6 @@ class SdkReactNativeModule(reactContext: ReactApplicationContext) :
     Issuetracker.configure(
       application = app,
       apiKey = apiKey,
-      endpoint = endpoint,
       shakeToReport = shakeToReport,
       longPressToReport = longPressToReport,
       enableCrashReporting = enableCrashReporting,

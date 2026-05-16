@@ -9,12 +9,11 @@ import {
 } from 'react-native';
 import { Issuetracker } from '@issuetracker/sdk-react-native';
 
-const API_KEY = 'it_replace_with_real_key_from_admin_ui';
-const ENDPOINT = 'https://issuetracker-api-staging.web.app/v1';
+const API_KEY = 'it_staging_replace_with_real_key_from_admin_ui';
 
 export default function App() {
   useEffect(() => {
-    Issuetracker.configure({ apiKey: API_KEY, endpoint: ENDPOINT });
+    Issuetracker.configure({ apiKey: API_KEY });
   }, []);
 
   return (

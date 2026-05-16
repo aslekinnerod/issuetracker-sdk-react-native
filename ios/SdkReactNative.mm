@@ -6,13 +6,11 @@
 RCT_EXPORT_MODULE()
 
 - (void)configure:(NSString *)apiKey
-         endpoint:(NSString *)endpoint
     shakeToReport:(BOOL)shakeToReport
 longPressToReport:(BOOL)longPressToReport
 enableCrashReporting:(BOOL)enableCrashReporting
 {
     [IssuetrackerSdkBridge configureWithApiKey:apiKey
-                                       endpoint:endpoint
                                   shakeToReport:shakeToReport
                               longPressToReport:longPressToReport
                             enableCrashReporting:enableCrashReporting];

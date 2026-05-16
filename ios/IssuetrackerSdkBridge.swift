@@ -8,16 +8,13 @@ import IssuetrackerSDK
 
     @objc public static func configure(
         apiKey: String,
-        endpoint: String,
         shakeToReport: Bool,
         longPressToReport: Bool,
         enableCrashReporting: Bool
     ) {
-        guard let url = URL(string: endpoint) else { return }
         DispatchQueue.main.async {
             Issuetracker.configure(
                 apiKey: apiKey,
-                endpoint: url,
                 shakeToReport: shakeToReport,
                 longPressToReport: longPressToReport,
                 enableCrashReporting: enableCrashReporting

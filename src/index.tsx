@@ -2,7 +2,6 @@ import NativeIssuetrackerSdk from './NativeSdkReactNative';
 
 export interface ConfigureOptions {
   apiKey: string;
-  endpoint: string;
   shakeToReport?: boolean;
   longPressToReport?: boolean;
   enableCrashReporting?: boolean;
@@ -20,12 +19,12 @@ export const Issuetracker = {
    * Call once at app start (typically in App.tsx top-level).
    *
    * @param options.apiKey  Raw API key from the Issuetracker web admin.
-   * @param options.endpoint  Base URL, e.g. https://api.issuetracker.no/v1
+   *   Environment (production vs. staging) is derived from the key
+   *   prefix — there is no endpoint to configure.
    */
   configure(options: ConfigureOptions): void {
     NativeIssuetrackerSdk.configure(
       options.apiKey,
-      options.endpoint,
       options.shakeToReport ?? true,
       options.longPressToReport ?? true,
       options.enableCrashReporting ?? true

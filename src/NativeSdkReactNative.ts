@@ -9,7 +9,6 @@ import { TurboModuleRegistry, type TurboModule } from 'react-native';
 export interface Spec extends TurboModule {
   configure(
     apiKey: string,
-    endpoint: string,
     shakeToReport: boolean,
     longPressToReport: boolean,
     enableCrashReporting: boolean
