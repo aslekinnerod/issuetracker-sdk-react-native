@@ -1,15 +1,38 @@
 #import "SdkReactNative.h"
 #import "SdkReactNative-Swift.h"
 
+// ADR-0003 Decision 9 event name. Mirrored in src/index.tsx — keep
+// them in sync if either side changes.
+static NSString *const IssuetrackerEventConfigurationError = @"Issuetracker_onConfigurationError";
+
 @implementation SdkReactNative
 
 RCT_EXPORT_MODULE()
+
++ (BOOL)requiresMainQueueSetup
+{
+    return YES;
+}
+
+- (NSArray<NSString *> *)supportedEvents
+{
+    return @[IssuetrackerEventConfigurationError];
+}
 
 - (void)configure:(NSString *)apiKey
     shakeToReport:(BOOL)shakeToReport
 longPressToReport:(BOOL)longPressToReport
 enableCrashReporting:(BOOL)enableCrashReporting
 {
+    // Wire the Swift bridge's static handler into this RCTEventEmitter
+    // instance. Captured weakly so the module can be torn down without
+    // leaking; if the JS side hasn't subscribed yet, `sendEventWithName:`
+    // is a no-op rather than an error, which is fine — the underlying
+    // native SDK still persists TERMINATED via its own LifecycleStore.
+    __weak SdkReactNative *weakSelf = self;
+    [IssuetrackerSdkBridge setOnConfigurationErrorHandler:^(NSString *reason) {
+        [weakSelf sendEventWithName:IssuetrackerEventConfigurationError body:reason];
+    }];
     [IssuetrackerSdkBridge configureWithApiKey:apiKey
                                   shakeToReport:shakeToReport
                               longPressToReport:longPressToReport

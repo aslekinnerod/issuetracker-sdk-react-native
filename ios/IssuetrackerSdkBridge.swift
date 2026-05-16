@@ -6,6 +6,15 @@ import IssuetrackerSDK
 /// with name-mangling or URL parsing.
 @objc public class IssuetrackerSdkBridge: NSObject {
 
+    /// Set by SdkReactNative.mm at configure-time. Receives the
+    /// SdkErrorReason rawValue (matching the wire contract) which the
+    /// .mm forwards to JS via `sendEventWithName:body:`. Lives here
+    /// because the Swift `Issuetracker.configure(onConfigurationError:)`
+    /// closure runs in the IssuetrackerSDK module's context and we
+    /// need a way to bridge that into the Obj-C++ TurboModule.
+    /// See ADR-0003 Decision 9.
+    @objc public static var onConfigurationErrorHandler: ((String) -> Void)?
+
     @objc public static func configure(
         apiKey: String,
         shakeToReport: Bool,
@@ -17,7 +26,10 @@ import IssuetrackerSDK
                 apiKey: apiKey,
                 shakeToReport: shakeToReport,
                 longPressToReport: longPressToReport,
-                enableCrashReporting: enableCrashReporting
+                enableCrashReporting: enableCrashReporting,
+                onConfigurationError: { reason in
+                    onConfigurationErrorHandler?(reason.rawValue)
+                }
             )
         }
     }
