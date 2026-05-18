@@ -52,7 +52,7 @@ export type IssueReportType = 'bug' | 'task' | 'story';
 
 const EVENT_NAME = 'Issuetracker_onConfigurationError';
 const emitter = new NativeEventEmitter(
-  NativeIssuetrackerSdk as unknown as Parameters<typeof NativeEventEmitter>[0],
+  NativeIssuetrackerSdk as unknown as ConstructorParameters<typeof NativeEventEmitter>[0],
 );
 
 let activeSubscription: EmitterSubscription | undefined;

@@ -20,11 +20,13 @@ buildscript {
 
 apply plugin: "com.facebook.react.rootproject"
 
-// Resolve the native Android SDK (`io.issuetracker:sdk`) from
-// mavenLocal during development. Run once before building:
-//   cd ../../../sdk-android && ./gradlew :sdk:publishToMavenLocal
-allprojects {
-    repositories {
-        mavenLocal()
-    }
-}
+// The native Android SDK (`no.issuetracker:sdk`) is published to
+// Maven Central, so no extra repository is needed at the consuming-
+// app level. For pre-release testing against the local sdk-android
+// tree, uncomment mavenLocal() and run from sdk-android:
+//   ./gradlew :sdk:publishToMavenLocal
+// allprojects {
+//     repositories {
+//         mavenLocal()
+//     }
+// }

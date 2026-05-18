@@ -67,5 +67,5 @@ dependencies {
   // Native Android SDK that this wrapper bridges to. For local dev,
   // the example app's settings.gradle uses includeBuild('../../sdk-android')
   // which resolves this coordinate from the local source tree.
-  implementation "io.issuetracker:sdk:0.4.0"
+  implementation "no.issuetracker:sdk:0.4.1"
 }
