@@ -17,6 +17,7 @@ class SdkReactNativeModule(reactContext: ReactApplicationContext) :
     shakeToReport: Boolean,
     longPressToReport: Boolean,
     enableCrashReporting: Boolean,
+    showOnboarding: Boolean,
   ) {
     val app = reactApplicationContext.applicationContext as android.app.Application
     Issuetracker.configure(
@@ -34,7 +35,12 @@ class SdkReactNativeModule(reactContext: ReactApplicationContext) :
           .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
           .emit(configurationErrorEvent, reason.rawValue)
       },
+      showOnboarding = showOnboarding,
     )
+  }
+
+  override fun showOnboarding() {
+    Issuetracker.showOnboarding()
   }
 
   // Required for NativeEventEmitter on the JS side. No-op

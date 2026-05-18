@@ -1,6 +1,6 @@
 {
   "name": "@issuetracker/sdk-react-native",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Drop-in issue reporter SDK for React Native apps",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

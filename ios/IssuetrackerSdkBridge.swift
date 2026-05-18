@@ -19,7 +19,8 @@ import IssuetrackerSDK
         apiKey: String,
         shakeToReport: Bool,
         longPressToReport: Bool,
-        enableCrashReporting: Bool
+        enableCrashReporting: Bool,
+        showOnboarding: Bool
     ) {
         DispatchQueue.main.async {
             Issuetracker.configure(
@@ -29,13 +30,18 @@ import IssuetrackerSDK
                 enableCrashReporting: enableCrashReporting,
                 onConfigurationError: { reason in
                     onConfigurationErrorHandler?(reason.rawValue)
-                }
+                },
+                showOnboarding: showOnboarding
             )
         }
     }
 
     @objc public static func report() {
         DispatchQueue.main.async { Issuetracker.report() }
+    }
+
+    @objc public static func showOnboarding() {
+        DispatchQueue.main.async { Issuetracker.showOnboarding() }
     }
 
     @objc public static func identify(_ name: String) {

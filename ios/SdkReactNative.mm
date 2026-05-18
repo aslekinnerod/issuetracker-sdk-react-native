@@ -23,6 +23,7 @@ RCT_EXPORT_MODULE()
     shakeToReport:(BOOL)shakeToReport
 longPressToReport:(BOOL)longPressToReport
 enableCrashReporting:(BOOL)enableCrashReporting
+   showOnboarding:(BOOL)showOnboarding
 {
     // Wire the Swift bridge's static handler into this RCTEventEmitter
     // instance. Captured weakly so the module can be torn down without
@@ -36,12 +37,18 @@ enableCrashReporting:(BOOL)enableCrashReporting
     [IssuetrackerSdkBridge configureWithApiKey:apiKey
                                   shakeToReport:shakeToReport
                               longPressToReport:longPressToReport
-                            enableCrashReporting:enableCrashReporting];
+                            enableCrashReporting:enableCrashReporting
+                                 showOnboarding:showOnboarding];
 }
 
 - (void)report
 {
     [IssuetrackerSdkBridge report];
+}
+
+- (void)showOnboarding
+{
+    [IssuetrackerSdkBridge showOnboarding];
 }
 
 - (void)identify:(NSString *)name
