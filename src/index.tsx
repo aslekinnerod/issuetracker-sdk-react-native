@@ -1,34 +1,8 @@
 import { NativeEventEmitter, type EmitterSubscription } from 'react-native';
 import NativeIssuetrackerSdk from './NativeSdkReactNative';
+import { isSdkErrorReason, type SdkErrorReason } from './errors';
 
-/**
- * Machine-readable reason for an SDK-callable failure. String values
- * match the server-side `SdkErrorReasonSchema` in
- * `@issuetracker/shared` byte-for-byte — they are the wire contract
- * across all five SDKs. See ADR-0003 Decision 9.
- */
-export type SdkErrorReason =
-  | 'project_deleted'
-  | 'project_not_found'
-  | 'api_key_revoked'
-  | 'workspace_suspended'
-  | 'invalid_api_key'
-  | 'quota_exceeded'
-  | 'transient';
-
-const SDK_ERROR_REASONS: ReadonlySet<string> = new Set<SdkErrorReason>([
-  'project_deleted',
-  'project_not_found',
-  'api_key_revoked',
-  'workspace_suspended',
-  'invalid_api_key',
-  'quota_exceeded',
-  'transient',
-]);
-
-function isSdkErrorReason(value: unknown): value is SdkErrorReason {
-  return typeof value === 'string' && SDK_ERROR_REASONS.has(value);
-}
+export type { SdkErrorReason };
 
 export interface ConfigureOptions {
   apiKey: string;
@@ -46,6 +20,16 @@ export interface ConfigureOptions {
    * `configure()` (typically an app relaunch). See ADR-0003 Decision 9.
    */
   onConfigurationError?: (reason: SdkErrorReason) => void;
+  /**
+   * If `true`, presents a one-time popover on first launch teaching
+   * the user which gestures trigger the reporter — only the gestures
+   * currently enabled are shown. Persisted per install by the native
+   * iOS / Android SDKs so the popover never appears twice unless
+   * {@link Issuetracker.showOnboarding} is called explicitly. With
+   * both `shakeToReport` and `longPressToReport` disabled the popover
+   * is silently skipped. Defaults to `false`.
+   */
+  showOnboarding?: boolean;
 }
 
 export type IssueReportType = 'bug' | 'task' | 'story';
@@ -87,13 +71,24 @@ export const Issuetracker = {
       options.apiKey,
       options.shakeToReport ?? true,
       options.longPressToReport ?? true,
-      options.enableCrashReporting ?? true
+      options.enableCrashReporting ?? true,
+      options.showOnboarding ?? false
     );
   },
 
   /** Programmatic trigger — for an in-app "Report a bug" button. */
   report(): void {
     NativeIssuetrackerSdk.report();
+  },
+
+  /**
+   * Re-presents the onboarding popover regardless of whether it has
+   * been shown before on this install. Intended for a "Show
+   * introduction again"-style entry in a host app's settings screen.
+   * No-op if no gestures are enabled, or if called before configure().
+   */
+  showOnboarding(): void {
+    NativeIssuetrackerSdk.showOnboarding();
   },
 
   /** Skip the "What should we call you?" prompt. */

@@ -17,9 +17,11 @@ export interface Spec extends TurboModule {
     apiKey: string,
     shakeToReport: boolean,
     longPressToReport: boolean,
-    enableCrashReporting: boolean
+    enableCrashReporting: boolean,
+    showOnboarding: boolean
   ): void;
   report(): void;
+  showOnboarding(): void;
   identify(name: string): void;
   clearIdentity(): void;
   recordAction(action: string, metadata: Object | null): void;

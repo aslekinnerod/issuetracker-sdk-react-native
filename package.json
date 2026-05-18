@@ -36,6 +36,7 @@
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
     "typecheck": "tsc",
+    "test": "vitest run",
     "lint": "eslint \"**/*.{js,ts,tsx}\""
   },
   "keywords": [
@@ -73,7 +74,8 @@
     "react-native": "0.85.0",
     "react-native-builder-bob": "^0.41.0",
     "turbo": "^2.8.21",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "vitest": "^2.1.9"
   },
   "peerDependencies": {
     "react": "*",
