@@ -18,7 +18,10 @@ export interface Spec extends TurboModule {
     shakeToReport: boolean,
     longPressToReport: boolean,
     enableCrashReporting: boolean,
-    showOnboarding: boolean
+    showOnboarding: boolean,
+    terminatedTitle: string | null,
+    terminatedSubtitle: string | null,
+    terminatedCloseLabel: string | null
   ): void;
   report(): void;
   showOnboarding(): void;

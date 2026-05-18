@@ -24,6 +24,9 @@ RCT_EXPORT_MODULE()
 longPressToReport:(BOOL)longPressToReport
 enableCrashReporting:(BOOL)enableCrashReporting
    showOnboarding:(BOOL)showOnboarding
+  terminatedTitle:(NSString * _Nullable)terminatedTitle
+terminatedSubtitle:(NSString * _Nullable)terminatedSubtitle
+terminatedCloseLabel:(NSString * _Nullable)terminatedCloseLabel
 {
     // Wire the Swift bridge's static handler into this RCTEventEmitter
     // instance. Captured weakly so the module can be torn down without
@@ -38,7 +41,10 @@ enableCrashReporting:(BOOL)enableCrashReporting
                                   shakeToReport:shakeToReport
                               longPressToReport:longPressToReport
                             enableCrashReporting:enableCrashReporting
-                                 showOnboarding:showOnboarding];
+                                 showOnboarding:showOnboarding
+                                terminatedTitle:terminatedTitle
+                             terminatedSubtitle:terminatedSubtitle
+                           terminatedCloseLabel:terminatedCloseLabel];
 }
 
 - (void)report

@@ -20,8 +20,25 @@ import IssuetrackerSDK
         shakeToReport: Bool,
         longPressToReport: Bool,
         enableCrashReporting: Bool,
-        showOnboarding: Bool
+        showOnboarding: Bool,
+        terminatedTitle: String?,
+        terminatedSubtitle: String?,
+        terminatedCloseLabel: String?
     ) {
+        // Build the optional TerminatedUiStrings only when the host app
+        // actually provided something. All-nil means "use the SDK's
+        // built-in English defaults" — same contract as on web and
+        // Android. ADR-0003 Decision 9.
+        let terminatedUI: TerminatedUiStrings? = {
+            if terminatedTitle == nil && terminatedSubtitle == nil && terminatedCloseLabel == nil {
+                return nil
+            }
+            return TerminatedUiStrings(
+                title: terminatedTitle,
+                subtitle: terminatedSubtitle,
+                closeLabel: terminatedCloseLabel
+            )
+        }()
         DispatchQueue.main.async {
             Issuetracker.configure(
                 apiKey: apiKey,
@@ -31,7 +48,8 @@ import IssuetrackerSDK
                 onConfigurationError: { reason in
                     onConfigurationErrorHandler?(reason.rawValue)
                 },
-                showOnboarding: showOnboarding
+                showOnboarding: showOnboarding,
+                terminatedUI: terminatedUI
             )
         }
     }

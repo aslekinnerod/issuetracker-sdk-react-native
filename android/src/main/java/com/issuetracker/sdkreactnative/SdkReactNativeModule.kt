@@ -4,6 +4,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import no.issuetracker.sdk.Issuetracker
+import no.issuetracker.sdk.TerminatedUiStrings
 
 class SdkReactNativeModule(reactContext: ReactApplicationContext) :
   NativeSdkReactNativeSpec(reactContext) {
@@ -18,8 +19,25 @@ class SdkReactNativeModule(reactContext: ReactApplicationContext) :
     longPressToReport: Boolean,
     enableCrashReporting: Boolean,
     showOnboarding: Boolean,
+    terminatedTitle: String?,
+    terminatedSubtitle: String?,
+    terminatedCloseLabel: String?,
   ) {
     val app = reactApplicationContext.applicationContext as android.app.Application
+    // Build TerminatedUiStrings only when the host app provided
+    // something. All-null means "use the SDK's built-in English
+    // defaults" — same contract as on iOS and web. ADR-0003 Decision 9.
+    val terminatedUI: TerminatedUiStrings? = if (
+      terminatedTitle == null && terminatedSubtitle == null && terminatedCloseLabel == null
+    ) {
+      null
+    } else {
+      TerminatedUiStrings(
+        title = terminatedTitle,
+        subtitle = terminatedSubtitle,
+        closeLabel = terminatedCloseLabel,
+      )
+    }
     Issuetracker.configure(
       application = app,
       apiKey = apiKey,
@@ -36,6 +54,7 @@ class SdkReactNativeModule(reactContext: ReactApplicationContext) :
           .emit(configurationErrorEvent, reason.rawValue)
       },
       showOnboarding = showOnboarding,
+      terminatedUI = terminatedUI,
     )
   }
 

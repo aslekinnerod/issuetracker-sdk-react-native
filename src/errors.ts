@@ -31,3 +31,22 @@ const SDK_ERROR_REASONS: ReadonlySet<string> = new Set<SdkErrorReason>([
 export function isSdkErrorReason(value: unknown): value is SdkErrorReason {
   return typeof value === 'string' && SDK_ERROR_REASONS.has(value);
 }
+
+/**
+ * Strings shown when the underlying native SDK has been terminated
+ * and a test-cohort user opens the reporting surface. ADR-0003
+ * Decision 9 mandates a localised terminal message; English is the
+ * built-in default on the native side, and host apps may inject
+ * translations via `Issuetracker.configure({ terminatedUI })`.
+ *
+ * Each field is optional — fields the host doesn't override fall back
+ * to English. A missing entire object falls back to all-English.
+ */
+export interface TerminatedUiStrings {
+  /** Big headline. Default: "Bug reporting is no longer available." */
+  title?: string;
+  /** One-line follow-up. Default: "Contact your team." */
+  subtitle?: string;
+  /** Close-button label. Default: "Close". */
+  closeLabel?: string;
+}

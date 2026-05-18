@@ -1,8 +1,12 @@
 import { NativeEventEmitter, type EmitterSubscription } from 'react-native';
 import NativeIssuetrackerSdk from './NativeSdkReactNative';
-import { isSdkErrorReason, type SdkErrorReason } from './errors';
+import {
+  isSdkErrorReason,
+  type SdkErrorReason,
+  type TerminatedUiStrings,
+} from './errors';
 
-export type { SdkErrorReason };
+export type { SdkErrorReason, TerminatedUiStrings };
 
 export interface ConfigureOptions {
   apiKey: string;
@@ -30,6 +34,14 @@ export interface ConfigureOptions {
    * is silently skipped. Defaults to `false`.
    */
   showOnboarding?: boolean;
+  /**
+   * Overrides for the TERMINATED-state UI text rendered by the
+   * underlying native SDK. Useful for host apps that ship in non-
+   * English locales — the SDK's built-in defaults are English. Any
+   * field left undefined falls back to the default. See ADR-0003
+   * Decision 9.
+   */
+  terminatedUI?: TerminatedUiStrings;
 }
 
 export type IssueReportType = 'bug' | 'task' | 'story';
@@ -72,7 +84,10 @@ export const Issuetracker = {
       options.shakeToReport ?? true,
       options.longPressToReport ?? true,
       options.enableCrashReporting ?? true,
-      options.showOnboarding ?? false
+      options.showOnboarding ?? false,
+      options.terminatedUI?.title ?? null,
+      options.terminatedUI?.subtitle ?? null,
+      options.terminatedUI?.closeLabel ?? null
     );
   },
 
