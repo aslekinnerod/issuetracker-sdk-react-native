@@ -1,97 +1,111 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Issuetracker SDK — React Native sample app
 
-# Getting Started
+A real installable React Native app that exercises every public
+surface of the SDK so you can shake-test changes in 30 seconds. Same
+feature checklist as the Android, iOS, and Flutter sample apps —
+keep them in lockstep when adding capabilities.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## How to run
 
-## Step 1: Start Metro
+1. Open `src/App.tsx` and replace the `API_KEY` constant with a real
+   key from the Issuetracker admin UI. (Or copy `App.tsx` to
+   `App.local.tsx`, gitignore that, and edit there for day-to-day
+   work.)
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+   If you skip this step the build still works but the SDK will fall
+   into `invalid_api_key` → TERMINATED on the first report — a useful
+   demo path, just not the happy one.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+2. Install deps + start Metro:
 
-```sh
-# Using npm
-npm start
+   ```
+   cd sdk-react-native/example
+   yarn install
+   yarn start
+   ```
 
-# OR using Yarn
-yarn start
+3. In a second terminal, run on a connected device or simulator:
+
+   ```
+   yarn android   # or
+   yarn ios
+   ```
+
+   For iOS, first time only:
+
+   ```
+   bundle install
+   bundle exec pod install
+   ```
+
+## Feature checklist
+
+Each section in the app maps 1:1 to a surface in the SDK. When you
+add a feature, add a section here AND in the sister sample apps so
+the four platforms stay comparable.
+
+| Section | What it exercises | SDK API |
+|---|---|---|
+| **Lifecycle** | Shows the last `onConfigurationError` reason the SDK reported. Has a "Reset" button so you can retry a path that has already fired. | `onConfigurationError` callback on `configure(...)` |
+| **Reporting** | One button programmatically opens the reporter. Shake-to-report and two-finger long-press also trigger it. | `Issuetracker.report()` + `shakeToReport` + `longPressToReport` |
+| **Identity** | Sets / clears the display name that stamps every report. | `identify(name)` / `clearIdentity()` |
+| **Breadcrumbs** | Records up to two action breadcrumbs with optional metadata. The most-recent 5 ride along on every report. | `recordAction(name, metadata?)` |
+| **Onboarding** | Re-presents the first-launch trigger introduction popover regardless of whether it has been shown before. | `Issuetracker.showOnboarding()` |
+| **TERMINATED-UI i18n** | Toggle a Norwegian translation of the terminal-state strings. Applied immediately — RN re-calls `configure(...)` on toggle so no restart is needed. | `terminatedUI: TerminatedUiStrings` on `configure(...)` |
+| **Destructive** | Crash-test button (with confirmation). The next launch picks up the crash and queues a report. | `Issuetracker.testCrash()` |
+
+## Folder layout
+
+```
+example/
+  README.md                  ← you are here
+  package.json               ← deps: @issuetracker/sdk-react-native + @react-native-async-storage/async-storage
+  src/
+    App.tsx                  ← Issuetracker.configure() + single demo screen
+  android/                   ← platform shell (generated)
+  ios/                       ← platform shell (generated)
 ```
 
-## Step 2: Build and run your app
+The companion sample apps mirror this layout per platform convention:
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+- `sdk-android/sample-app/` (Compose single screen)
+- `sdk-flutter/example/` (Material 3 single screen)
+- `sdk-ios/example-app/` (Swift Package + SwiftUI single screen)
+- `sdk-web/example/` (existing — extend to match this feature set)
 
-### Android
+Each sample-app README is the same shape (How to run + Feature
+checklist table) so a person can hop between platforms and find the
+same affordances.
 
-```sh
-# Using npm
-npm run android
+## Adding a new feature
 
-# OR using Yarn
-yarn android
-```
+When the SDK gains a new public surface:
 
-### iOS
+1. Add a section to **this** app (an `XxxSection` component in
+   `App.tsx`).
+2. Add the row to the **Feature checklist** table above.
+3. Replicate to the other three sample apps using the same section
+   title + same affordance (button label / toggle label).
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## What this app intentionally is NOT
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+- Not a production reference app — uses `AsyncStorage` for tiny
+  state (i18n toggle + last error display), not MMKV / Redux
+  Persist / WatermelonDB.
+- Not a layout exemplar — single scroll, neutral-grey cards. The
+  point is to surface every SDK affordance, not to look pretty.
+- Not multi-screen — keeps the surface flat so anyone testing the
+  SDK can find every feature without learning a navigation tree.
 
-```sh
-bundle install
-```
+## RN-specific notes
 
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- The TERMINATED-UI strings are accepted on every `configure(...)`
+  call, so the i18n section here re-configures on toggle without an
+  app restart. The Android and Flutter sample apps require a restart
+  because their `configure(...)` runs in `Application.onCreate` /
+  `main()` rather than per-mount.
+- `--dart-define`-style build-time env vars don't have an obvious
+  React Native equivalent without adding `react-native-config` or
+  similar. To avoid the dep, we keep the API key as a const at the
+  top of `App.tsx` and recommend the `App.local.tsx` copy pattern
+  for day-to-day work.
