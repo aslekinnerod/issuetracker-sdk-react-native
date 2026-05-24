@@ -10,7 +10,10 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
-  s.platforms    = { :ios => min_ios_version_supported }
+  # Must match IssuetrackerSDK's minimum (iOS 16.0); cannot use
+  # RN's default min_ios_version_supported (15.1) because the
+  # native SDK we depend on requires 16.0.
+  s.platforms    = { :ios => "16.0" }
   s.source       = { :git => "https://github.com/aslekinnerod/issuetracker-sdk-react-native.git", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,swift,cpp}"

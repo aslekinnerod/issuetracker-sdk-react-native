@@ -87,9 +87,4 @@ terminatedCloseLabel:(NSString * _Nullable)terminatedCloseLabel
     return std::make_shared<facebook::react::NativeSdkReactNativeSpecJSI>(params);
 }
 
-+ (NSString *)moduleName
-{
-    return @"SdkReactNative";
-}
-
 @end
