@@ -12,6 +12,22 @@ export interface ConfigureOptions {
   apiKey: string;
   shakeToReport?: boolean;
   longPressToReport?: boolean;
+  /**
+   * If `true`, the native SDK registers a screen-reader custom action
+   * ("Report a bug") while VoiceOver / TalkBack is running, giving
+   * screen-reader users a gesture-free path to the reporter (the OS
+   * screen reader typically claims the shake and multi-finger
+   * gestures). See ADR-0008 Decision 2. Defaults to `false`.
+   */
+  accessibilityAction?: boolean;
+  /**
+   * If `true`, the native SDK renders a small floating "Report a bug"
+   * button — a one-line path to a visible, WCAG-conformant entry
+   * point for hosts that don't wire their own control to
+   * {@link Issuetracker.report}. See ADR-0008 Decision 3. Defaults to
+   * `false`.
+   */
+  showReportButton?: boolean;
   enableCrashReporting?: boolean;
   /**
    * Optional callback invoked once when the SDK transitions to the
@@ -48,7 +64,9 @@ export type IssueReportType = 'bug' | 'task' | 'story';
 
 const EVENT_NAME = 'Issuetracker_onConfigurationError';
 const emitter = new NativeEventEmitter(
-  NativeIssuetrackerSdk as unknown as ConstructorParameters<typeof NativeEventEmitter>[0],
+  NativeIssuetrackerSdk as unknown as ConstructorParameters<
+    typeof NativeEventEmitter
+  >[0]
 );
 
 let activeSubscription: EmitterSubscription | undefined;
@@ -74,15 +92,20 @@ export const Issuetracker = {
 
     const cb = options.onConfigurationError;
     if (cb) {
-      activeSubscription = emitter.addListener(EVENT_NAME, (reason: unknown) => {
-        if (isSdkErrorReason(reason)) cb(reason);
-      });
+      activeSubscription = emitter.addListener(
+        EVENT_NAME,
+        (reason: unknown) => {
+          if (isSdkErrorReason(reason)) cb(reason);
+        }
+      );
     }
 
     NativeIssuetrackerSdk.configure(
       options.apiKey,
       options.shakeToReport ?? true,
       options.longPressToReport ?? true,
+      options.accessibilityAction ?? false,
+      options.showReportButton ?? false,
       options.enableCrashReporting ?? true,
       options.showOnboarding ?? false,
       options.terminatedUI?.title ?? null,
@@ -118,6 +141,26 @@ export const Issuetracker = {
   /** Record one user action (max 5 retained, attached to next report). */
   recordAction(action: string, metadata?: Record<string, string>): void {
     NativeIssuetrackerSdk.recordAction(action, metadata ?? null);
+  },
+
+  /**
+   * Stores a tester attestation token (ADR-0005). On projects in
+   * testers-only mode this is what unlocks the report triggers and
+   * gets reports past the server; in open mode it stamps reports with
+   * the tester's identity. The token will normally arrive from the
+   * native companion-app transports; this API is the manual injection
+   * point until those ship (and for integration tests).
+   */
+  setTesterToken(token: string, expiresAtMillis?: number): void {
+    NativeIssuetrackerSdk.setTesterToken(token, expiresAtMillis ?? null);
+  },
+
+  /**
+   * Removes the stored tester token. On testers-only projects the
+   * gesture triggers go inert again from the next gesture.
+   */
+  clearTesterToken(): void {
+    NativeIssuetrackerSdk.clearTesterToken();
   },
 
   /** Throws inside the native layer. SDK integration testing only. */

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  AccessibilityInfo,
   Alert,
   Pressable,
   SafeAreaView,
@@ -22,7 +23,7 @@ import {
 // on the first report — useful for demoing the TERMINATED flow if
 // you leave it in. For day-to-day work, copy this file to
 // App.local.tsx (gitignore it) and edit the key there.
-const API_KEY = 'it_staging_REPLACE_ME';
+const API_KEY = 'it_staging_yxu5pmzVxZfPmOvc7BSkdQ7k2qrDXHM1';
 
 const PREF_USE_NORWEGIAN = '@issuetracker.sample.useNorwegianTerminatedUI';
 const PREF_LAST_ERROR = '@issuetracker.sample.lastConfigError';
@@ -70,6 +71,11 @@ export default function App() {
       apiKey: API_KEY,
       shakeToReport: true,
       longPressToReport: true,
+      // ADR-0008: the one-line accessibility path — a screen-reader
+      // custom action plus an SDK-provided floating report button
+      // (takes effect once the native SDKs ship the flags).
+      accessibilityAction: true,
+      showReportButton: true,
       enableCrashReporting: true,
       showOnboarding: true,
       onConfigurationError: (reason: SdkErrorReason) => {
@@ -78,6 +84,9 @@ export default function App() {
         setLastErrorAt(at);
         AsyncStorage.setItem(PREF_LAST_ERROR, reason);
         AsyncStorage.setItem(PREF_LAST_ERROR_AT, String(at));
+        AccessibilityInfo.announceForAccessibility(
+          `Configuration error: ${reason}`
+        );
       },
       terminatedUI: norwegian ? NORWEGIAN_STRINGS : undefined,
     });
@@ -112,12 +121,14 @@ export default function App() {
             if (v) {
               Issuetracker.identify(v);
               setIdentityFeedback(`Saved "${v}"`);
+              AccessibilityInfo.announceForAccessibility(`Saved "${v}"`);
             }
           }}
           onClear={() => {
             Issuetracker.clearIdentity();
             setName('');
             setIdentityFeedback('Cleared.');
+            AccessibilityInfo.announceForAccessibility('Identity cleared.');
           }}
         />
 
@@ -125,14 +136,16 @@ export default function App() {
           recent={recentBreadcrumbs}
           onRecordViewed={() => {
             Issuetracker.recordAction('viewed_home');
-            setRecentBreadcrumbs((prev) =>
-              [...prev, 'viewed_home'].slice(-5),
-            );
+            setRecentBreadcrumbs((prev) => [...prev, 'viewed_home'].slice(-5));
+            AccessibilityInfo.announceForAccessibility('Recorded viewed_home');
           }}
           onRecordTapped={() => {
             Issuetracker.recordAction('tapped_button', { id: 'settings' });
             setRecentBreadcrumbs((prev) =>
-              [...prev, 'tapped_button'].slice(-5),
+              [...prev, 'tapped_button'].slice(-5)
+            );
+            AccessibilityInfo.announceForAccessibility(
+              'Recorded tapped_button'
             );
           }}
         />
@@ -159,13 +172,23 @@ export default function App() {
 function SectionCard(props: {
   title: string;
   subtitle?: string;
+  subtitleLiveRegion?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>{props.title.toUpperCase()}</Text>
+      <Text accessibilityRole="header" style={styles.cardTitle}>
+        {props.title}
+      </Text>
       {props.subtitle && (
-        <Text style={styles.cardSubtitle}>{props.subtitle}</Text>
+        <Text
+          style={styles.cardSubtitle}
+          accessibilityLiveRegion={
+            props.subtitleLiveRegion ? 'polite' : undefined
+          }
+        >
+          {props.subtitle}
+        </Text>
       )}
       <View style={styles.cardBody}>{props.children}</View>
     </View>
@@ -183,6 +206,7 @@ function PrimaryButton({
 }) {
   return (
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
         styles.btn,
@@ -209,6 +233,7 @@ function SecondaryButton({
 }) {
   return (
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
         styles.btn,
@@ -245,7 +270,7 @@ function LifecycleSection(props: {
     : 'Listening for onConfigurationError. Nothing fired yet.';
 
   return (
-    <SectionCard title="Lifecycle" subtitle={subtitle}>
+    <SectionCard title="Lifecycle" subtitle={subtitle} subtitleLiveRegion>
       <SecondaryButton title="Reset last error" onPress={props.onReset} />
     </SectionCard>
   );
@@ -257,7 +282,10 @@ function ReportingSection() {
       title="Reporting"
       subtitle="Shake the device, two-finger long-press (3s), or tap the button."
     >
-      <PrimaryButton title="Report a bug" onPress={() => Issuetracker.report()} />
+      <PrimaryButton
+        title="Report a bug"
+        onPress={() => Issuetracker.report()}
+      />
     </SectionCard>
   );
 }
@@ -274,11 +302,13 @@ function IdentitySection(props: {
       title="Identity"
       subtitle="Skips the in-form name prompt and stamps every report."
     >
+      <Text style={styles.inputLabel}>Display name</Text>
       <TextInput
         value={props.name}
         onChangeText={props.onNameChange}
-        placeholder="Display name (e.g. Kari Nordmann)"
-        placeholderTextColor="#9ca3af"
+        accessibilityLabel="Display name"
+        placeholder="e.g. Kari Nordmann"
+        placeholderTextColor="#5b6472"
         style={styles.input}
       />
       <View style={styles.row}>
@@ -286,7 +316,11 @@ function IdentitySection(props: {
         <View style={styles.gap} />
         <SecondaryButton title="Clear" onPress={props.onClear} flex />
       </View>
-      {props.feedback && <Text style={styles.muted}>{props.feedback}</Text>}
+      {props.feedback && (
+        <Text accessibilityLiveRegion="polite" style={styles.muted}>
+          {props.feedback}
+        </Text>
+      )}
     </SectionCard>
   );
 }
@@ -315,7 +349,11 @@ function BreadcrumbSection(props: {
         />
       </View>
       {props.recent.length > 0 && (
-        <Text style={styles.muted} numberOfLines={2}>
+        <Text
+          accessibilityLiveRegion="polite"
+          style={styles.muted}
+          numberOfLines={2}
+        >
           Recorded: {props.recent.join(' → ')}
         </Text>
       )}
@@ -346,10 +384,17 @@ function I18nSection(props: {
       title="TERMINATED-UI i18n"
       subtitle="When ON, the SDK shows the terminal screen in Norwegian. Applied immediately — no restart needed (the native SDK accepts a new terminatedUI on every configure() call)."
     >
-      <View style={[styles.row, styles.rowBetween]}>
+      <Pressable
+        accessible={true}
+        accessibilityRole="switch"
+        accessibilityState={{ checked: props.useNorwegian }}
+        accessibilityLabel="Norwegian strings"
+        onPress={() => props.onToggle(!props.useNorwegian)}
+        style={[styles.row, styles.rowBetween]}
+      >
         <Text style={styles.body}>Norwegian strings</Text>
         <Switch value={props.useNorwegian} onValueChange={props.onToggle} />
-      </View>
+      </Pressable>
     </SectionCard>
   );
 }
@@ -366,7 +411,7 @@ function DestructiveSection() {
           style: 'destructive',
           onPress: () => Issuetracker.testCrash(),
         },
-      ],
+      ]
     );
   }
   return (
@@ -374,7 +419,11 @@ function DestructiveSection() {
       title="Destructive"
       subtitle="Test the crash-reporting flow. The app will die immediately and the SDK files an issue on next launch."
     >
-      <SecondaryButton title="Force crash" onPress={confirmAndCrash} destructive />
+      <SecondaryButton
+        title="Force crash"
+        onPress={confirmAndCrash}
+        destructive
+      />
     </SectionCard>
   );
 }
@@ -393,19 +442,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.6,
-    color: '#6b7280',
+    color: '#5b626e',
     marginBottom: 4,
+    textTransform: 'uppercase',
   },
-  cardSubtitle: { fontSize: 13, color: '#6b7280', marginBottom: 10 },
+  cardSubtitle: { fontSize: 13, color: '#5b626e', marginBottom: 10 },
   cardBody: { gap: 10 },
   row: { flexDirection: 'row', alignItems: 'center' },
   rowBetween: { justifyContent: 'space-between' },
   gap: { width: 8 },
   body: { fontSize: 14, color: '#1f2937' },
-  muted: { fontSize: 12, color: '#6b7280' },
+  muted: { fontSize: 12, color: '#5b626e' },
+  inputLabel: { fontSize: 13, fontWeight: '600', color: '#1f2937' },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: '#767c86',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,

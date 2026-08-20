@@ -23,6 +23,8 @@ const CANONICAL: SdkErrorReason[] = [
   'invalid_api_key',
   'quota_exceeded',
   'transient',
+  'tester_attestation_required',
+  'tester_token_invalid',
 ];
 
 describe('isSdkErrorReason', () => {

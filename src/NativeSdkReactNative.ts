@@ -17,6 +17,8 @@ export interface Spec extends TurboModule {
     apiKey: string,
     shakeToReport: boolean,
     longPressToReport: boolean,
+    accessibilityAction: boolean,
+    showReportButton: boolean,
     enableCrashReporting: boolean,
     showOnboarding: boolean,
     terminatedTitle: string | null,
@@ -28,6 +30,8 @@ export interface Spec extends TurboModule {
   identify(name: string): void;
   clearIdentity(): void;
   recordAction(action: string, metadata: Object | null): void;
+  setTesterToken(token: string, expiresAtMillis: number | null): void;
+  clearTesterToken(): void;
   testCrash(): void;
   addListener(eventName: string): void;
   removeListeners(count: number): void;

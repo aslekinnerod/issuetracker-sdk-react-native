@@ -22,6 +22,8 @@ RCT_EXPORT_MODULE()
 - (void)configure:(NSString *)apiKey
     shakeToReport:(BOOL)shakeToReport
 longPressToReport:(BOOL)longPressToReport
+accessibilityAction:(BOOL)accessibilityAction
+ showReportButton:(BOOL)showReportButton
 enableCrashReporting:(BOOL)enableCrashReporting
    showOnboarding:(BOOL)showOnboarding
   terminatedTitle:(NSString * _Nullable)terminatedTitle
@@ -40,6 +42,8 @@ terminatedCloseLabel:(NSString * _Nullable)terminatedCloseLabel
     [IssuetrackerSdkBridge configureWithApiKey:apiKey
                                   shakeToReport:shakeToReport
                               longPressToReport:longPressToReport
+                            accessibilityAction:accessibilityAction
+                               showReportButton:showReportButton
                             enableCrashReporting:enableCrashReporting
                                  showOnboarding:showOnboarding
                                 terminatedTitle:terminatedTitle
@@ -74,6 +78,16 @@ terminatedCloseLabel:(NSString * _Nullable)terminatedCloseLabel
         typed = (NSDictionary<NSString *, NSString *> *)metadata;
     }
     [IssuetrackerSdkBridge recordAction:action metadata:typed];
+}
+
+- (void)setTesterToken:(NSString *)token expiresAtMillis:(NSNumber * _Nullable)expiresAtMillis
+{
+    [IssuetrackerSdkBridge setTesterToken:token expiresAtMillis:expiresAtMillis];
+}
+
+- (void)clearTesterToken
+{
+    [IssuetrackerSdkBridge clearTesterToken];
 }
 
 - (void)testCrash

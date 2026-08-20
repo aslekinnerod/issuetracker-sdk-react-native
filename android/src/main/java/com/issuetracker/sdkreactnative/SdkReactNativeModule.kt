@@ -17,6 +17,8 @@ class SdkReactNativeModule(reactContext: ReactApplicationContext) :
     apiKey: String,
     shakeToReport: Boolean,
     longPressToReport: Boolean,
+    accessibilityAction: Boolean,
+    showReportButton: Boolean,
     enableCrashReporting: Boolean,
     showOnboarding: Boolean,
     terminatedTitle: String?,
@@ -38,6 +40,10 @@ class SdkReactNativeModule(reactContext: ReactApplicationContext) :
         closeLabel = terminatedCloseLabel,
       )
     }
+    // TODO: requires no.issuetracker:sdk >= 0.7 — forward
+    // accessibilityAction / showReportButton once the native SDK's
+    // configure() gains the ADR-0008 flags. Accepted-and-ignored until
+    // then so the JS surface can ship ahead of the native release.
     Issuetracker.configure(
       application = app,
       apiKey = apiKey,
@@ -97,6 +103,14 @@ class SdkReactNativeModule(reactContext: ReactApplicationContext) :
       out.takeIf { it.isNotEmpty() }
     }
     Issuetracker.recordAction(action, map)
+  }
+
+  override fun setTesterToken(token: String, expiresAtMillis: Double?) {
+    Issuetracker.setTesterToken(token, expiresAtMillis?.toLong())
+  }
+
+  override fun clearTesterToken() {
+    Issuetracker.clearTesterToken()
   }
 
   override fun testCrash() {

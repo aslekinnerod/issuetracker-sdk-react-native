@@ -16,7 +16,9 @@ export type SdkErrorReason =
   | 'workspace_suspended'
   | 'invalid_api_key'
   | 'quota_exceeded'
-  | 'transient';
+  | 'transient'
+  | 'tester_attestation_required'
+  | 'tester_token_invalid';
 
 const SDK_ERROR_REASONS: ReadonlySet<string> = new Set<SdkErrorReason>([
   'project_deleted',
@@ -26,6 +28,8 @@ const SDK_ERROR_REASONS: ReadonlySet<string> = new Set<SdkErrorReason>([
   'invalid_api_key',
   'quota_exceeded',
   'transient',
+  'tester_attestation_required',
+  'tester_token_invalid',
 ]);
 
 export function isSdkErrorReason(value: unknown): value is SdkErrorReason {

@@ -22,7 +22,8 @@ Pod::Spec.new do |s|
   # Native iOS SDK that this wrapper bridges to. The example app's
   # Podfile pins it to a local path for development:
   #   pod 'IssuetrackerSDK', :path => '../../../sdk-ios'
-  s.dependency "IssuetrackerSDK", "~> 0.5"
+  # 0.6: tester attestation (ADR-0005) — setTesterToken/clearTesterToken.
+  s.dependency "IssuetrackerSDK", "~> 0.6"
 
   install_modules_dependencies(s)
 end

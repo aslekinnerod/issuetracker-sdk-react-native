@@ -19,6 +19,8 @@ import IssuetrackerSDK
         apiKey: String,
         shakeToReport: Bool,
         longPressToReport: Bool,
+        accessibilityAction: Bool,
+        showReportButton: Bool,
         enableCrashReporting: Bool,
         showOnboarding: Bool,
         terminatedTitle: String?,
@@ -39,6 +41,11 @@ import IssuetrackerSDK
                 closeLabel: terminatedCloseLabel
             )
         }()
+        // TODO: requires IssuetrackerSDK >= 0.7 — forward
+        // accessibilityAction / showReportButton once the native SDK's
+        // configure() gains the ADR-0008 flags. Accepted-and-ignored
+        // until then so the JS surface can ship ahead of the native
+        // release.
         DispatchQueue.main.async {
             Issuetracker.configure(
                 apiKey: apiKey,
@@ -72,6 +79,21 @@ import IssuetrackerSDK
 
     @objc public static func recordAction(_ action: String, metadata: [String: String]?) {
         Issuetracker.recordAction(action, metadata: metadata)
+    }
+
+    @objc public static func setTesterToken(_ token: String, expiresAtMillis: NSNumber?) {
+        let expiresAt = expiresAtMillis.map {
+            Date(timeIntervalSince1970: $0.doubleValue / 1000)
+        }
+        DispatchQueue.main.async {
+            Issuetracker.setTesterToken(token, expiresAt: expiresAt)
+        }
+    }
+
+    @objc public static func clearTesterToken() {
+        DispatchQueue.main.async {
+            Issuetracker.clearTesterToken()
+        }
     }
 
     @objc public static func testCrash() {
