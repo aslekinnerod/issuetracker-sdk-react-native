@@ -1,0 +1,186 @@
+name: Release to npm
+
+# Publishing was a manual `npm publish` from a developer's working tree:
+# no proof the commit was green, that the gitignored lib/ matched the
+# source it claims to be built from, that a git tag existed for CocoaPods
+# to resolve, and no provenance attestation tying the tarball to a commit.
+# A bad tarball on npm looks exactly like a good one, so every check has
+# to run here, against this commit, before the publish.
+#
+# Mirrors sdk-web/.github/workflows/publish.yml.
+on:
+  push:
+    tags:
+      # Semver tags: 0.6.0, 1.0.0, 1.0.0-rc.1. The podspec resolves this
+      # same tag for CocoaPods consumers.
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: npm-publish
+    permissions:
+      contents: read
+      # Required for npm OIDC trusted publishing + provenance.
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          # Tags are needed for the git-describe assertion below.
+          fetch-depth: 0
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          registry-url: https://registry.npmjs.org
+
+      # The podspec points CocoaPods at :tag => package.json's version.
+      # If HEAD is not that tag, npm and CocoaPods ship different code
+      # under the same version number and nothing later notices.
+      - name: Verify HEAD is the tagged commit and the tag matches package.json
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          tag="$(git describe --exact-match --tags HEAD 2>/dev/null || true)"
+          if [ -z "$tag" ]; then
+            echo "::error::HEAD is not tagged. CocoaPods resolves this package by the git tag '${version}'; publish only from a tagged commit."
+            exit 1
+          fi
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Git tag '${tag}' does not match package.json version '${version}'."
+            exit 1
+          fi
+          echo "Publishing ${version} from tag ${tag} ($(git rev-parse HEAD))."
+
+      # Republishing an existing version is the failure mode that leaves
+      # npm and CocoaPods serving different code under one version number.
+      # A registry error must fail the release, not be read as "not
+      # published" — that would be a check that passes without checking.
+      - name: Verify this version is not already on npm
+        run: |
+          set -uo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+
+          versions="$(npm view "${name}" versions --json 2>&1)"
+          status=$?
+          if [ $status -ne 0 ]; then
+            if printf '%s' "$versions" | grep -q 'E404'; then
+              echo "${name} has never been published; ${version} will be the first release."
+              exit 0
+            fi
+            echo "::error::Could not query npm for published versions of ${name} — the duplicate-version check did not run:"
+            printf '%s\n' "$versions"
+            exit 1
+          fi
+
+          node -e '
+            const list = JSON.parse(process.argv[1]);
+            const published = Array.isArray(list) ? list : [list];
+            const version = process.argv[2];
+            if (published.includes(version)) {
+              console.error(`::error::${process.argv[3]}@${version} is already published. Republishing leaves CocoaPods consumers resolving the old tag contents — bump the version instead.`);
+              process.exit(1);
+            }
+            console.log(`${version} is not on npm yet (${published.length} version(s) published).`);
+          ' "$versions" "$version" "$name"
+
+      # BOOTSTRAP, READ BEFORE THE FIRST TAG: @issuetracker/sdk-react-native
+      # is not on npm yet, and a trusted publisher can only be configured
+      # on a package that already exists. So this workflow CANNOT succeed
+      # on the very first release — with only `id-token: write` and no
+      # token there is nothing to authenticate with, and the publish step
+      # fails on auth. Publish 0.x.0 once by hand with a granular token,
+      # connect the trusted publisher in npm's UI, and every tag after
+      # that goes through here. sdk-web and sdk-flutter document the same
+      # one-time step; this is not a defect in the workflow.
+      #
+      # OIDC trusted publishing needs npm >= 11.5.1. Older npm silently
+      # falls back to using the id-token for provenance only, which fails
+      # auth in a way that is easy to misread. Assert rather than assume
+      # whatever npm the pinned Node ships with.
+      - name: Verify npm supports trusted publishing
+        run: |
+          set -euo pipefail
+          required=11.5.1
+          actual="$(npm --version)"
+          if [ "$(printf '%s\n%s\n' "$required" "$actual" | sort -V | head -n1)" != "$required" ]; then
+            echo "::error::npm ${actual} is too old for OIDC trusted publishing (need >= ${required}). Bump .nvmrc to a Node release shipping a newer npm, or install one in this job."
+            exit 1
+          fi
+          echo "npm ${actual}"
+
+      # The same checks CI runs, re-run here against the exact commit
+      # being published. A tag can be pushed to a commit that never had a
+      # green CI run.
+      - name: Lint
+        run: yarn lint
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Check native bridge parity
+        run: yarn check:native
+
+      - name: Test
+        run: yarn test
+
+      - name: Build package
+        run: yarn prepare
+
+      - name: Verify published artifact
+        run: yarn verify:package
+
+      # The dist-tag has to be derived, not defaulted. `npm publish` with
+      # no --tag always moves `latest`, so a 0.6.0-rc.1 tag would make a
+      # release candidate the default install for every consumer — the
+      # same defect sdk-web had, found in the same audit.
+      - name: Publish to npm
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          case "$version" in
+            *-*) dist_tag=next ;;
+            *)   dist_tag=latest ;;
+          esac
+          echo "Publishing $version to dist-tag $dist_tag"
+          npm publish --provenance --access public --tag "$dist_tag"
+
+      # A publish that exits 0 has not been read back. Assert the version
+      # actually resolves, that the tag we intended moved to it, and that
+      # `latest` is not now a prerelease.
+      - name: Verify the publish landed
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          case "$version" in
+            *-*) dist_tag=next ;;
+            *)   dist_tag=latest ;;
+          esac
+          for attempt in 1 2 3 4 5; do
+            published=$(npm view "@issuetracker/sdk-react-native@$version" version 2>/dev/null || true)
+            [ "$published" = "$version" ] && break
+            echo "not visible yet (attempt $attempt), waiting…"
+            sleep 10
+          done
+          [ "$published" = "$version" ] || { echo "::error::$version never became resolvable on npm"; exit 1; }
+
+          moved=$(npm view "@issuetracker/sdk-react-native" "dist-tags.$dist_tag" 2>/dev/null || true)
+          [ "$moved" = "$version" ] || {
+            echo "::error::dist-tag $dist_tag is $moved, expected $version"
+            echo "Recover with: npm dist-tag add @issuetracker/sdk-react-native@$version $dist_tag"
+            exit 1
+          }
+
+          latest=$(npm view "@issuetracker/sdk-react-native" dist-tags.latest 2>/dev/null || true)
+          case "$latest" in
+            *-*) echo "::error::latest is now the prerelease $latest"; exit 1 ;;
+          esac
+          echo "$version is live on npm, dist-tag $dist_tag; latest is $latest"

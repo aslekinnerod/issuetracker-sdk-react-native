@@ -1,6 +1,14 @@
 name: Setup
 description: Setup Node.js and install dependencies
 
+inputs:
+  registry-url:
+    description: >-
+      Optional npm registry to configure (needed by the publish job so
+      npm writes an .npmrc; leave empty for CI jobs that never publish).
+    required: false
+    default: ''
+
 runs:
   using: composite
   steps:
@@ -8,6 +16,27 @@ runs:
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version-file: .nvmrc
+        registry-url: ${{ inputs.registry-url }}
+
+    # `yarn install` below only works because the runner image happens to
+    # ship a Yarn 1 shim that reads .yarnrc.yml and delegates to the
+    # checked-in .yarn/releases/yarn-4.11.0.cjs. Nothing asserted that,
+    # so a shim that resolved to some other Yarn would install with
+    # different semantics and still report success. Assert it instead.
+    - name: Verify Yarn version
+      shell: bash
+      run: |
+        set -euo pipefail
+        expected="$(node -p "require('./package.json').packageManager.split('@')[1]")"
+        if ! actual="$(yarn --version 2>/dev/null)"; then
+          echo "::error::No usable 'yarn' on PATH. package.json expects yarn@${expected} (checked in at .yarn/releases/)."
+          exit 1
+        fi
+        if [ "$actual" != "$expected" ]; then
+          echo "::error::Yarn ${actual} is running, but package.json pins yarn@${expected}."
+          exit 1
+        fi
+        echo "Yarn ${actual} (matches packageManager)"
 
     - name: Restore dependencies
       id: yarn-cache

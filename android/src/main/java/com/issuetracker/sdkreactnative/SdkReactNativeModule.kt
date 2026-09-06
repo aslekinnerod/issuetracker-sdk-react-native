@@ -2,7 +2,6 @@ package com.issuetracker.sdkreactnative
 
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
-import com.facebook.react.modules.core.DeviceEventManagerModule
 import no.issuetracker.sdk.Issuetracker
 import no.issuetracker.sdk.TerminatedUiStrings
 
@@ -51,13 +50,25 @@ class SdkReactNativeModule(reactContext: ReactApplicationContext) :
       longPressToReport = longPressToReport,
       enableCrashReporting = enableCrashReporting,
       onConfigurationError = { reason ->
-        // Emit on the JS thread via DeviceEventManagerModule. If JS
-        // hasn't subscribed yet, RN drops the event silently — the
-        // underlying native SDK still persists TERMINATED via its
-        // own LifecycleStore, so the user-visible UI is unaffected.
-        reactApplicationContext
-          .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-          .emit(configurationErrorEvent, reason.rawValue)
+        // Emit to JS via RCTDeviceEventEmitter. If JS hasn't subscribed
+        // yet, RN drops the event silently — the underlying native SDK
+        // still persists TERMINATED via its own LifecycleStore, so the
+        // user-visible UI is unaffected.
+        //
+        // The native SDK holds this closure for the life of the
+        // process, which can outlive the React context (dev reload, or
+        // a hybrid host tearing the RN instance down), and it invokes
+        // it from its own background thread. On the bridge
+        // architecture getJSModule() throws IllegalStateException
+        // ("Tried to access a JS module after the React instance was
+        // destroyed") in that window, which would take the host app
+        // down on a code path whose whole purpose is to fail
+        // gracefully. Guard + swallow: a dropped event is the correct
+        // trade, TERMINATED is persisted natively either way.
+        val ctx = reactApplicationContext
+        if (ctx.hasActiveReactInstance()) {
+          runCatching { ctx.emitDeviceEvent(configurationErrorEvent, reason.rawValue) }
+        }
       },
       showOnboarding = showOnboarding,
       terminatedUI = terminatedUI,

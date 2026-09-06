@@ -2,6 +2,7 @@ import { NativeEventEmitter, type EmitterSubscription } from 'react-native';
 import NativeIssuetrackerSdk from './NativeSdkReactNative';
 import {
   isSdkErrorReason,
+  isSdkErrorTerminal,
   type SdkErrorReason,
   type TerminatedUiStrings,
 } from './errors';
@@ -72,6 +73,38 @@ const emitter = new NativeEventEmitter(
 let activeSubscription: EmitterSubscription | undefined;
 
 /**
+ * Flags this JS surface accepts that the underlying native SDKs do not
+ * forward yet — they need IssuetrackerSDK / no.issuetracker:sdk >= 0.7
+ * (see the matching TODOs in ios/IssuetrackerSdkBridge.swift and
+ * android/.../SdkReactNativeModule.kt, both of which accept and discard
+ * them). `configure()` succeeds either way, so a host that asks for the
+ * report button gets no error, no button, and no way to tell why. Warn
+ * instead of throwing: rejecting would break apps already passing these.
+ */
+const NOT_YET_FORWARDED_BY_NATIVE = [
+  'accessibilityAction',
+  'showReportButton',
+] as const;
+
+const warnedFlags = new Set<string>();
+
+function warnAboutUnsupportedFlags(options: ConfigureOptions): void {
+  for (const flag of NOT_YET_FORWARDED_BY_NATIVE) {
+    if (options[flag] !== true || warnedFlags.has(flag)) continue;
+    // Development-time integration mistake; stay silent in release
+    // builds rather than log on every host app's production console.
+    if (typeof __DEV__ !== 'undefined' && !__DEV__) continue;
+    warnedFlags.add(flag);
+    console.warn(
+      `[Issuetracker] configure({ ${flag}: true }) has no effect yet: the ` +
+        'native iOS / Android SDKs this version bridges to ignore it until ' +
+        'IssuetrackerSDK / no.issuetracker:sdk 0.7. configure() still ' +
+        'succeeds — the feature is simply absent.'
+    );
+  }
+}
+
+/**
  * Public facade. Wraps the native iOS + Android Issuetracker SDKs.
  * All UI / triggers / network / lifecycle persistence live in the
  * native layer; this module is a bridge plus the JS-side event
@@ -84,6 +117,8 @@ export const Issuetracker = {
    * prefix — there is no endpoint to configure.
    */
   configure(options: ConfigureOptions): void {
+    warnAboutUnsupportedFlags(options);
+
     // Tear down any prior subscription so a re-configure() with a
     // different callback doesn't end up firing both. Subsequent
     // configure() calls are uncommon but the SDK doesn't forbid them.
@@ -95,7 +130,16 @@ export const Issuetracker = {
       activeSubscription = emitter.addListener(
         EVENT_NAME,
         (reason: unknown) => {
-          if (isSdkErrorReason(reason)) cb(reason);
+          // Defence in depth at the JS boundary. The native SDKs emit
+          // this event only on the one-way OK -> TERMINATED transition,
+          // so a recoverable reason (quota_exceeded / transient) or a
+          // tester-gating rejection (ADR-0005) arriving here would be a
+          // native-side regression — forwarding it would tell the host
+          // app its project is gone when it is not. Unrecognised
+          // strings are dropped for the same reason. ADR-0003 Decision 9.
+          if (isSdkErrorReason(reason) && isSdkErrorTerminal(reason)) {
+            cb(reason);
+          }
         }
       );
     }

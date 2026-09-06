@@ -1,4 +1,12 @@
 {
+  // Explicit program. Without these, `tsc` typechecks "everything under
+  // rootDir that isn't node_modules", which means the file set depends on
+  // what happens to be on disk: on a developer machine that sweeps in the
+  // generated `lib/` tree, on a fresh CI checkout it doesn't (lib/ is
+  // gitignored). Same config, two different programs — so keep the set
+  // pinned here instead.
+  "include": ["src", "example/src", "vitest.config.ts"],
+  "exclude": ["node_modules", "example/node_modules", "lib"],
   "compilerOptions": {
     "rootDir": ".",
     "paths": {

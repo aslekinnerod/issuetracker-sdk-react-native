@@ -29,6 +29,8 @@
     "!**/__tests__",
     "!**/__fixtures__",
     "!**/__mocks__",
+    "!**/*.test.*",
+    "!**/*.spec.*",
     "!**/.*"
   ],
   "scripts": {
@@ -37,7 +39,9 @@
     "prepare": "bob build",
     "typecheck": "tsc",
     "test": "vitest run",
-    "lint": "eslint \"**/*.{js,ts,tsx}\""
+    "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "verify:package": "node scripts/verify-package.mjs",
+    "check:native": "node scripts/check-native-parity.mjs"
   },
   "keywords": [
     "react-native",
@@ -88,6 +92,7 @@
   "react-native-builder-bob": {
     "source": "src",
     "output": "lib",
+    "exclude": "{**/{__tests__,__fixtures__,__mocks__}/**,**/*.{test,spec}.{ts,tsx}}",
     "targets": [
       [
         "module",

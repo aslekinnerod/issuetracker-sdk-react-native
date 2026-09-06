@@ -32,8 +32,40 @@ const SDK_ERROR_REASONS: ReadonlySet<string> = new Set<SdkErrorReason>([
   'tester_token_invalid',
 ]);
 
+const RECOVERABLE_REASONS: ReadonlySet<SdkErrorReason> = new Set([
+  'quota_exceeded',
+  'transient',
+]);
+
+// Tester-gating rejections (ADR-0005) are non-recoverable — retrying
+// the same request cannot succeed — but they are NOT terminal: the
+// project is alive, the key is valid, only this install lacks (valid)
+// attestation. The SDK must never flip to TERMINATED on them, so they
+// must never reach the host's onConfigurationError callback either.
+const NON_TERMINAL_REASONS: ReadonlySet<SdkErrorReason> = new Set([
+  'quota_exceeded',
+  'transient',
+  'tester_attestation_required',
+  'tester_token_invalid',
+]);
+
 export function isSdkErrorReason(value: unknown): value is SdkErrorReason {
   return typeof value === 'string' && SDK_ERROR_REASONS.has(value);
+}
+
+/** Mirrors `isSdkErrorRecoverable` in sdk-web and `isRecoverable` in sdk-android. */
+export function isSdkErrorRecoverable(reason: SdkErrorReason): boolean {
+  return RECOVERABLE_REASONS.has(reason);
+}
+
+/**
+ * Whether this reason is one of the five that flip the underlying
+ * native SDK into one-way TERMINATED, and therefore the only ones
+ * ADR-0003 Decision 9 allows through `onConfigurationError`. Mirrors
+ * `isSdkErrorTerminal` in sdk-web and `isTerminal` in sdk-android.
+ */
+export function isSdkErrorTerminal(reason: SdkErrorReason): boolean {
+  return !NON_TERMINAL_REASONS.has(reason);
 }
 
 /**

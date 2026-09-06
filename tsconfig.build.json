@@ -1,4 +1,20 @@
 {
   "extends": "./tsconfig",
-  "exclude": ["example", "lib"]
+  // What bob's `typescript` target compiles into lib/. Tests and the
+  // vitest config must stay out: everything emitted here lands in lib/,
+  // lib/ ships wholesale via package.json `files`, and a published
+  // `errors.test.js` whose first line is `import ... from 'vitest'` is an
+  // unresolvable import inside the tarball for every consumer. The
+  // matching exclusion for the `module` (babel) target lives in the
+  // `react-native-builder-bob.exclude` glob in package.json — both
+  // targets need it, and `scripts/verify-package.mjs` asserts the result.
+  "exclude": [
+    "example",
+    "lib",
+    "vitest.config.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
 }

@@ -10,13 +10,21 @@ on:
     types:
       - checks_requested
 
+# Nothing here uses the token beyond checkout.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Only cancel superseded PR runs. On main every commit shares the ref
+  # refs/heads/main, so unconditional cancellation lets a commit end with
+  # no verdict at all — a cancelled run is neither green nor red and
+  # notifies nobody.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -31,8 +39,33 @@ jobs:
       - name: Typecheck files
         run: yarn typecheck
 
+      # No job compiles the native sources (see the note at the bottom of
+      # this file), so a renamed or reordered configure() parameter would
+      # otherwise pass every check here and break at each consumer's
+      # build. This compares the TurboModule spec against the Kotlin,
+      # Swift and Obj-C++ signatures, and checks that iOS and Android pin
+      # the same version of the underlying native SDK.
+      - name: Check native bridge parity
+        run: yarn check:native
+
+  unit-tests:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      # Covers the ADR-0003 Decision 9 bridge contract (src/index.test.ts)
+      # and the error-reason wire format (src/errors.test.ts). Pure JS —
+      # no native toolchain needed.
+      - name: Unit tests
+        run: yarn test
+
   build-library:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -44,9 +77,25 @@ jobs:
       - name: Build package
         run: yarn prepare
 
+      # `bob build` exiting 0 only says the compiler ran. This asserts the
+      # thing we actually publish: that main/types/exports resolve to
+      # files that exist and are in the tarball, that no test file or
+      # devDependency import ships, and that the native sources a
+      # consumer needs are present. It also prints the full published
+      # file list into the log for review.
+      - name: Verify published artifact
+        run: yarn verify:package
+
   # The Android + iOS example builds the create-react-native-library
   # scaffolder originally added are intentionally not run in CI: they
   # require IssuetrackerSDK iOS via a sibling-repo CocoaPods :path
-  # override, and io.issuetracker:sdk Android via mavenLocal — neither
+  # override, and no.issuetracker:sdk Android via mavenLocal — neither
   # is reachable from a fresh CI runner. Re-enable once both native
   # SDKs are published to CocoaPods trunk + Maven Central.
+  #
+  # Until then, be explicit about what a green run here does and does not
+  # prove: no RN codegen, no pod install, no xcodebuild and no gradle
+  # assemble run in this repo, so the Kotlin / Swift / Obj-C++ sources are
+  # first compiled by a consumer. `yarn check:native` in the lint job is a
+  # stand-in that catches signature and dependency-pin drift without a
+  # native toolchain. It is not a compiler.
