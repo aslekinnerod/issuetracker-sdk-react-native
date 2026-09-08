@@ -39,6 +39,11 @@ export interface ConfigureOptions {
    * telemetry. Once invoked, the SDK will not call the report endpoint
    * again for the lifetime of this install — recovery requires a fresh
    * `configure()` (typically an app relaunch). See ADR-0003 Decision 9.
+   *
+   * Fires at most once per registered callback. If the SDK is already
+   * terminated when `configure()` runs, the callback passed to that
+   * call is invoked with the original reason — a re-configure() never
+   * reports a terminated SDK as healthy by staying silent.
    */
   onConfigurationError?: (reason: SdkErrorReason) => void;
   /**
@@ -71,6 +76,43 @@ const emitter = new NativeEventEmitter(
 );
 
 let activeSubscription: EmitterSubscription | undefined;
+
+/**
+ * The reason the underlying native SDK went one-way TERMINATED, once
+ * it has told us. First reason wins and it is never cleared: JS has no
+ * business deciding the SDK is healthy again, and ADR-0003 Decision 9
+ * makes recovery the native LifecycleStore's call, not ours.
+ *
+ * Module scope, so it dies with the JS context — the durable marker
+ * lives in UserDefaults / SharedPreferences on the native side. This
+ * is a cache of what native told us, never a second source of truth.
+ */
+let terminatedReason: SdkErrorReason | undefined;
+
+/**
+ * Re-entrancy guard for the replay below. A host that calls
+ * configure() from inside its own onConfigurationError would otherwise
+ * recurse: replay -> host configure() -> replay -> ...
+ */
+let replaying = false;
+
+/**
+ * Wraps the host callback so it hears about termination exactly once,
+ * no matter how many times native re-emits (a rehydrated TERMINATED
+ * state re-announcing itself on configure(), plus a mid-session submit
+ * failure, is two emissions for one transition). `configure()`
+ * documents this callback as fired once.
+ */
+function onceDeliverer(
+  callback: (reason: SdkErrorReason) => void
+): (reason: SdkErrorReason) => void {
+  let delivered = false;
+  return (reason) => {
+    if (delivered) return;
+    delivered = true;
+    callback(reason);
+  };
+}
 
 /**
  * Flags this JS surface accepts that the underlying native SDKs do not
@@ -126,7 +168,8 @@ export const Issuetracker = {
     activeSubscription = undefined;
 
     const cb = options.onConfigurationError;
-    if (cb) {
+    const deliver = cb ? onceDeliverer(cb) : undefined;
+    if (deliver) {
       activeSubscription = emitter.addListener(
         EVENT_NAME,
         (reason: unknown) => {
@@ -137,9 +180,13 @@ export const Issuetracker = {
           // native-side regression — forwarding it would tell the host
           // app its project is gone when it is not. Unrecognised
           // strings are dropped for the same reason. ADR-0003 Decision 9.
-          if (isSdkErrorReason(reason) && isSdkErrorTerminal(reason)) {
-            cb(reason);
-          }
+          //
+          // isSdkErrorTerminal, never !isSdkErrorRecoverable: the two
+          // partitions differ on the ADR-0005 tester-gating reasons,
+          // which are non-recoverable yet must NOT terminate. ITD-163.
+          if (!isSdkErrorReason(reason) || !isSdkErrorTerminal(reason)) return;
+          terminatedReason ??= reason; // first reason wins
+          deliver(terminatedReason);
         }
       );
     }
@@ -156,6 +203,25 @@ export const Issuetracker = {
       options.terminatedUI?.subtitle ?? null,
       options.terminatedUI?.closeLabel ?? null
     );
+
+    // If native already told us it is dead, tell this callback too.
+    // Without it a re-configure() — a locale toggle, a Fast Refresh
+    // remount, a host wiring its telemetry hook late — hands the host
+    // a fresh callback that never fires, and the host reads that
+    // silence as a healthy SDK. Native persists TERMINATED across
+    // launches and a re-configure() does not revive it (ADR-0003
+    // Decision 9), so the silence would be a lie. Runs after the
+    // native call so configure() has fully applied before the host
+    // reacts, and is a no-op if the native side re-announced during
+    // configure() — onceDeliverer collapses the two.
+    if (deliver && terminatedReason !== undefined && !replaying) {
+      replaying = true;
+      try {
+        deliver(terminatedReason);
+      } finally {
+        replaying = false;
+      }
+    }
   },
 
   /** Programmatic trigger — for an in-app "Report a bug" button. */

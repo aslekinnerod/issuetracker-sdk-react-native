@@ -101,6 +101,32 @@ describe('isSdkErrorTerminal', () => {
     expect(isSdkErrorTerminal(reason)).toBe(false);
   });
 
+  // ITD-163. sdk-web's submit path used `!details.recoverable` as its
+  // termination test while every other path in the fleet used the
+  // terminal predicate. The two are not the same partition, and the
+  // gap is exactly the ADR-0005 tester-gating reasons: non-recoverable
+  // (retrying cannot help) but the project is alive, so terminating on
+  // them would permanently kill an SDK the other paths keep running.
+  it('is not the complement of recoverability', () => {
+    const misclassified = CANONICAL.filter(
+      (r) => !isSdkErrorRecoverable(r) !== isSdkErrorTerminal(r)
+    );
+    expect(misclassified.sort()).toEqual([
+      'tester_attestation_required',
+      'tester_token_invalid',
+    ]);
+  });
+
+  it('treats every recoverable reason as non-terminal', () => {
+    // The one direction that IS an invariant: nothing the SDK may
+    // retry can also be a reason to stop forever.
+    const recoverable = CANONICAL.filter(isSdkErrorRecoverable);
+    expect(recoverable.length).toBeGreaterThan(0);
+    for (const reason of recoverable) {
+      expect(isSdkErrorTerminal(reason), reason).toBe(false);
+    }
+  });
+
   it('classifies every canonical reason exactly once', () => {
     const terminal = CANONICAL.filter(isSdkErrorTerminal);
     const nonTerminal = CANONICAL.filter((r) => !isSdkErrorTerminal(r));

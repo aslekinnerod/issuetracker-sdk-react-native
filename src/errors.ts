@@ -42,9 +42,15 @@ const RECOVERABLE_REASONS: ReadonlySet<SdkErrorReason> = new Set([
 // project is alive, the key is valid, only this install lacks (valid)
 // attestation. The SDK must never flip to TERMINATED on them, so they
 // must never reach the host's onConfigurationError callback either.
+//
+// Built from RECOVERABLE_REASONS rather than re-listing them, so the
+// structural invariant "every recoverable reason is non-terminal"
+// cannot drift when a reason is added to one list and forgotten in
+// the other. Terminal is deliberately NOT the complement of
+// recoverable — that conflation is what made sdk-web's submit path
+// kill an SDK the rest of the fleet kept alive (ITD-163).
 const NON_TERMINAL_REASONS: ReadonlySet<SdkErrorReason> = new Set([
-  'quota_exceeded',
-  'transient',
+  ...RECOVERABLE_REASONS,
   'tester_attestation_required',
   'tester_token_invalid',
 ]);

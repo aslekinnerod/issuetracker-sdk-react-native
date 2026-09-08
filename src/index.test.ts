@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SdkErrorReason } from './errors';
+import {
+  isSdkErrorRecoverable,
+  isSdkErrorTerminal,
+  type SdkErrorReason,
+} from './errors';
 
 // ADR-0003 Decision 9 contract tests for the React Native bridge.
 //
@@ -111,7 +115,13 @@ type SdkModule = typeof import('./index');
  */
 async function loadSdk(): Promise<SdkModule> {
   vi.resetModules();
-  vi.clearAllMocks();
+  // reset, not clear: several tests below install a mockImplementation
+  // on the native stub (to observe ordering, or to have native re-emit
+  // from inside configure()). clearAllMocks() would wipe the call
+  // history but leave that implementation in place for every later
+  // test in the file — a fake native SDK that keeps announcing
+  // "project_deleted" long after the test that asked for it.
+  vi.resetAllMocks();
   mocks.state.listeners.clear();
   mocks.state.nextId = 1;
   mocks.state.emitterConstructions = 0;
@@ -397,7 +407,7 @@ describe('TERMINATED is one-way as far as JS is concerned', () => {
     expect(beforeCalls).toBe(1);
   });
 
-  it('forwards a changed API key verbatim without any terminated-state bookkeeping of its own', () => {
+  it('forwards a changed API key verbatim — JS never rewrites or suppresses the native call', () => {
     sdk.Issuetracker.configure({
       apiKey: 'it_dev_old',
       onConfigurationError: vi.fn(),
@@ -411,6 +421,213 @@ describe('TERMINATED is one-way as far as JS is concerned', () => {
 
     expect(lastConfigureArgs()[CONFIGURE_ARG.apiKey]).toBe('it_prod_new');
     expect(mocks.native.configure).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ITD-164 for the bridge. The RN package owns no queue, no timer and
+// no network call, so "stop talking to a dead endpoint" here means the
+// narrower thing the JS layer can actually get wrong: forgetting that
+// native already said it is dead, and so reporting a terminated SDK as
+// healthy to the host on the next configure().
+describe('the JS layer does not forget that native terminated', () => {
+  it('tells a callback registered by a later configure() that the SDK is already dead', () => {
+    // The failure this pins: a host re-configures (a locale toggle, a
+    // Fast Refresh remount, telemetry wired up late), gets a brand-new
+    // callback that never fires because the native transition already
+    // happened, and reads the silence as a healthy SDK.
+    const first = vi.fn();
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: first,
+    });
+    emitFromNative('project_deleted');
+    expect(first).toHaveBeenCalledTimes(1);
+
+    const second = vi.fn();
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: second,
+    });
+
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledWith('project_deleted');
+    expect(first).toHaveBeenCalledTimes(1);
+  });
+
+  it('replays only after the native configure() has been applied', () => {
+    const order: string[] = [];
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: vi.fn(),
+    });
+    emitFromNative('project_deleted');
+
+    mocks.native.configure.mockImplementation(() => order.push('configure'));
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: () => order.push('notify'),
+    });
+
+    expect(order).toEqual(['configure', 'notify']);
+  });
+
+  it('keeps the first reason — a later one does not overwrite the diagnosis', () => {
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: vi.fn(),
+    });
+    emitFromNative('project_deleted');
+    emitFromNative('api_key_revoked');
+
+    const later = vi.fn();
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: later,
+    });
+
+    expect(later).toHaveBeenCalledWith('project_deleted');
+  });
+
+  it('fires a callback once even when native re-announces the transition', () => {
+    // A rehydrated TERMINATED state announcing itself on configure()
+    // plus a mid-session submit failure is two emissions for one
+    // transition. configure() documents the callback as firing once.
+    const cb = vi.fn();
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: cb,
+    });
+
+    emitFromNative('project_deleted');
+    emitFromNative('project_deleted');
+    emitFromNative('api_key_revoked');
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb).toHaveBeenCalledWith('project_deleted');
+  });
+
+  it('does not double-fire when native re-announces during the same configure()', () => {
+    const cb = vi.fn();
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: vi.fn(),
+    });
+    emitFromNative('project_deleted');
+
+    // Native rehydrates TERMINATED inside configure() and emits from
+    // there; the replay must collapse into that, not add a second call.
+    mocks.native.configure.mockImplementation(() =>
+      emitFromNative('project_deleted')
+    );
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: cb,
+    });
+
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not recurse when the host re-configures from inside its own callback', () => {
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: vi.fn(),
+    });
+    emitFromNative('project_deleted');
+    mocks.native.configure.mockClear();
+
+    let depth = 0;
+    const reconfigure = () => {
+      depth++;
+      if (depth > 10) return; // fuse: a runaway would blow the stack
+      sdk.Issuetracker.configure({
+        apiKey: 'it_dev_x',
+        onConfigurationError: reconfigure,
+      });
+    };
+
+    // The host's outer call replays into its callback once; the
+    // configure() that callback makes is honoured, but its own replay
+    // is suppressed. Bounded at two, never a runaway.
+    expect(() => reconfigure()).not.toThrow();
+    expect(depth).toBe(2);
+    expect(mocks.native.configure).toHaveBeenCalledTimes(2);
+  });
+
+  it('replaying does not poke native beyond the configure() the host asked for', () => {
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: vi.fn(),
+    });
+    emitFromNative('project_deleted');
+    for (const fn of Object.values(mocks.native)) fn.mockClear();
+
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: vi.fn(),
+    });
+
+    expect(mocks.native.configure).toHaveBeenCalledTimes(1);
+    for (const [name, fn] of Object.entries(mocks.native)) {
+      if (['configure', 'addListener', 'removeListeners'].includes(name)) {
+        continue;
+      }
+      expect(fn, `native.${name} should not be called`).not.toHaveBeenCalled();
+    }
+  });
+
+  it('does not invent a terminated state the native side never reported', () => {
+    const cb = vi.fn();
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: vi.fn(),
+    });
+    emitFromNative('quota_exceeded');
+    emitFromNative('tester_attestation_required');
+    emitFromNative('not_a_reason');
+
+    sdk.Issuetracker.configure({
+      apiKey: 'it_dev_x',
+      onConfigurationError: cb,
+    });
+
+    expect(cb).not.toHaveBeenCalled();
+  });
+});
+
+// ITD-163. sdk-web shipped one path dispatching on
+// `!details.recoverable` while every other path used the terminal
+// predicate; the two disagree on exactly the ADR-0005 tester-gating
+// reasons, so that path would have killed an SDK the rest of the fleet
+// keeps alive. These pin the RN facade to one predicate.
+describe('one termination predicate', () => {
+  const CANONICAL: SdkErrorReason[] = [
+    ...TERMINAL_REASONS,
+    ...NON_TERMINAL_REASONS,
+  ];
+
+  it.each(CANONICAL)(
+    'the facade forwards %s if and only if isSdkErrorTerminal says so',
+    (reason) => {
+      const cb = vi.fn();
+      sdk.Issuetracker.configure({
+        apiKey: 'it_dev_x',
+        onConfigurationError: cb,
+      });
+
+      emitFromNative(reason);
+
+      expect(cb).toHaveBeenCalledTimes(isSdkErrorTerminal(reason) ? 1 : 0);
+    }
+  );
+
+  it('is not the complement of recoverability — `!recoverable` misclassifies the tester-gating reasons', () => {
+    const misclassified = CANONICAL.filter(
+      (r) => !isSdkErrorRecoverable(r) !== isSdkErrorTerminal(r)
+    );
+    expect(misclassified.sort()).toEqual([
+      'tester_attestation_required',
+      'tester_token_invalid',
+    ]);
   });
 });
 
@@ -497,5 +714,15 @@ describe('native bridge parity', () => {
   it('emits the reason rawValue, guarded against a torn-down React instance', () => {
     expect(kotlin).toContain('reason.rawValue');
     expect(kotlin).toContain('hasActiveReactInstance()');
+  });
+
+  // ITD-163: the facade must reach for the terminal predicate and
+  // nothing else. Behaviour is pinned above; this catches the reviewer-
+  // invisible version of the sdk-web regression — someone reaching for
+  // `recoverable` here because it reads like the same question.
+  it('dispatches on the terminal predicate, never on recoverability', () => {
+    expect(facade).toContain('isSdkErrorTerminal(');
+    expect(facade).not.toMatch(/isSdkErrorRecoverable\s*\(/);
+    expect(facade).not.toMatch(/\.recoverable\b/);
   });
 });
